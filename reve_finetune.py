@@ -165,7 +165,7 @@ def collate_fn(batch):
 class PTDataLoaderFactory:
     @staticmethod
     def create_loader(pt_path: str):
-        print(f"Loading cached tensors from {pt_path} ... (Requires huge RAM)")
+        print(f"Loading cached tensors from {pt_path}")
         payload = torch.load(pt_path, weights_only=False)
         dataset = RunsDataset(payload)
         return DataLoader(dataset, batch_size=1, num_workers=0, shuffle=True, pin_memory=True, collate_fn=collate_fn)
@@ -204,9 +204,7 @@ class MAELoRATrainer:
                 eeg_data, coords = batch
                 eeg_data = eeg_data.to(self.device, dtype=torch.float16)
                 coords = coords.to(self.device, dtype=torch.float16)
-                
-                # 微批次极致防 OOM 
-                # 【急救】如果 4090 依然爆显存，我已经帮你把 4 降到了 2。如果还不行，就可以降为 1。
+
                 mb_size = 4
                 for i in range(0, eeg_data.shape[0], mb_size):
                     mb_eeg = eeg_data[i:i+mb_size]
@@ -272,7 +270,6 @@ if __name__ == "__main__":
     for param in base_encoder.parameters():
         param.requires_grad = False
     
-    # [选填] 极限显存模式
     try:
         if hasattr(base_encoder, "gradient_checkpointing_enable"):
             base_encoder.gradient_checkpointing_enable()
@@ -285,11 +282,10 @@ if __name__ == "__main__":
     mae_model = ReveForPreTraining(encoder=base_encoder, decoder_depth=2, mask_ratio=0.55).to(device)
     
     # ==========================================
-    # [新增] 断点续训配置
-    # 如果你想从第 2 轮继续训练，只需取消下面的注释并填入正确的路径
+    # 断点续训配置
+
     resume_from_checkpoint = os.path.join(current_dir, "models_out", "mae_lora_read_finetune_epoch_2")
-    # ==========================================
-    # 刚才你改了上一行，但忘了把下面这行 None 注释掉，导致路径被强行覆盖成 None 啦！我已经帮你注释掉了。
+    # ==========================================。
     # resume_from_checkpoint = None 
     start_epoch = 0
     
@@ -325,8 +321,8 @@ if __name__ == "__main__":
     out_dir = os.path.join(current_dir, "models_out")
     
     # 真实测试数据：可以解注下方的真实数据逻辑
-    dummy_pt_path = r'd:\python\Project\Multi-Paradigm pretrained large speech EEG model\neural_task_arithmetic\data\ds_kul_listen.pt'
-    if os.path.exists(dummy_pt_path):
+    pt_path = r'd:\python\Project\Multi-Paradigm pretrained large speech EEG model\neural_task_arithmetic\data\ds_kul_listen.pt'
+    if os.path.exists(pt_path):
         loader = PTDataLoaderFactory.create_loader(dummy_pt_path)
         trainer.train_task(loader, task_name="kul_listen_finetune", save_dir=out_dir)
     else:
